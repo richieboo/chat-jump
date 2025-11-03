@@ -197,6 +197,41 @@
     });
     wrap.insertAdjacentElement('afterend', statusMsg);
 
+    const searchOptionsWrap = document.createElement('div');
+    Object.assign(searchOptionsWrap.style, {
+      display: 'flex',
+      justifyContent: 'center',
+      gap: '15px',
+      margin: '0 10px 10px',
+      fontSize: '13px',
+      color: '#aaa' // Lighter color for dark theme
+    });
+
+    function createRadioOption(value, label, isChecked) {
+      const labelEl = document.createElement('label');
+      labelEl.style.cursor = 'pointer';
+      labelEl.style.display = 'flex';
+      labelEl.style.alignItems = 'center';
+
+      const inputEl = document.createElement('input');
+      inputEl.type = 'radio';
+      inputEl.name = 'searchMode';
+      inputEl.value = value;
+      inputEl.checked = isChecked;
+      inputEl.style.marginRight = '5px';
+      
+      labelEl.appendChild(inputEl);
+      labelEl.appendChild(document.createTextNode(label));
+      return labelEl;
+    }
+
+    searchOptionsWrap.appendChild(createRadioOption('chatName', 'Chat Name', true));
+    searchOptionsWrap.appendChild(createRadioOption('fullConversation', 'Full Conversation', false));
+    statusMsg.insertAdjacentElement('afterend', searchOptionsWrap);
+
+    // Re-run filter when the search mode changes
+    searchOptionsWrap.addEventListener('change', filterNow);
+
     // What counts as a "chat/contact" entry is now in the outer scope
     /*
     const entriesSelector = [
@@ -214,10 +249,27 @@
     let isScrolling = false;
     function filterNow() {
       const q = filter.value.trim().toLowerCase();
+      const searchModeEl = document.querySelector('input[name="searchMode"]:checked');
+      const searchMode = searchModeEl ? searchModeEl.value : 'chatName';
       const entries = sidebar.querySelectorAll(entriesSelector);
       entries.forEach((node) => {
-        const text = (node.textContent || '').trim().toLowerCase();
-        node.style.display = !q || text.includes(q) ? '' : 'none';
+        let textToSearch = '';
+        if (searchMode === 'chatName') {
+          // Try to find a specific element that might contain the name.
+          // This is an educated guess based on common accessibility and structure patterns.
+          const nameEl = node.querySelector('[aria-label*="name" i], [data-testid*="name" i], [role="heading"]');
+          if (nameEl) {
+            textToSearch = (nameEl.textContent || '').trim().toLowerCase();
+          } else {
+            // If no specific element is found, fall back to the first non-empty line of text.
+            // This handles cases where the name is just the first text node in the list item.
+            const lines = (node.textContent || '').split('\n').map(line => line.trim()).filter(line => line.length > 0);
+            textToSearch = (lines[0] || '').toLowerCase();
+          }
+        } else { // 'fullConversation'
+            textToSearch = (node.textContent || '').trim().toLowerCase();
+        }
+        node.style.display = !q || textToSearch.includes(q) ? '' : 'none';
       });
     }
 
