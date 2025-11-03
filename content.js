@@ -153,6 +153,19 @@
     wrap.appendChild(clearBtn);
     sidebar.prepend(wrap);
 
+    // Status message element
+    const statusMsg = document.createElement('div');
+    statusMsg.id = 'smsContactFilterStatus';
+    Object.assign(statusMsg.style, {
+      display: 'none', // Initially hidden
+      margin: '0 10px 10px 10px',
+      fontSize: '13px',
+      color: '#666',
+      textAlign: 'center',
+      transition: 'opacity 0.3s'
+    });
+    wrap.insertAdjacentElement('afterend', statusMsg);
+
     // What counts as a "chat/contact" entry
     const entriesSelector = [
       'li',
@@ -176,24 +189,36 @@
     }
 
     filter.addEventListener('input', () => {
+        const query = filter.value.trim();
         // Trigger scroll only on the first input that creates a filter query
-        if (filter.value.trim().length > 0 && !isScrolling) {
+        if (query.length > 0 && !isScrolling) {
             isScrolling = true;
+            statusMsg.textContent = 'Searching for more...';
+            statusMsg.style.display = 'block';
+
             autoScrollSidebar(sidebar, () => {
                 // Scrolling is done, re-apply final filter
                 filterNow();
-                // Allow scrolling to be triggered again if the user clears and re-types
-                // isScrolling will be reset when the filter is cleared
+                statusMsg.textContent = 'All conversations searched.';
+                // isScrolling remains true until filter is cleared, preventing re-trigger
             });
         }
+        
+        // Handle clearing the filter manually by backspacing, etc.
+        if (query.length === 0 && isScrolling) {
+            clearFilter();
+        }
+
         filterNow();
     });
 
     function clearFilter() {
-      filter.value = '';
+      if (filter.value !== '') filter.value = '';
       filterNow();
       filter.focus();
       isScrolling = false; // Reset scrolling lock
+      statusMsg.style.display = 'none';
+      statusMsg.textContent = '';
     }
 
     clearBtn.addEventListener('click', clearFilter);
