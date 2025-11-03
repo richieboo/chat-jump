@@ -82,36 +82,38 @@
       const interval = 500; // Increased interval for loading
 
       let lastItemCount = 0;
+      let lastScrollHeight = 0;
 
 	  const timer = setInterval(() => {
 		try {
           const currentItemCount = sidebar.querySelectorAll(entriesSelector).length;
-          // Check if we are physically at the bottom of the scrollable area.
-          // A small buffer (e.g., 5px) helps with rounding issues.
-          const isAtBottom = scrollEl.scrollHeight - scrollEl.scrollTop - scrollEl.clientHeight < 5;
+          const currentScrollHeight = scrollEl.scrollHeight;
 
-          // An attempt is "idle" if we are at the bottom AND the item count hasn't changed.
-          if (isAtBottom && currentItemCount === lastItemCount) {
+          // An attempt is "idle" if both scroll height and item count have stopped changing.
+          if (currentScrollHeight === lastScrollHeight && currentItemCount === lastItemCount) {
               idleTries++;
           } else {
-              idleTries = 0; // Reset if we scrolled or new items appeared.
-              // Re-run the filter whenever new items are detected
-              if (currentItemCount > lastItemCount) {
-                  filterFn();
-              }
+              idleTries = 0; // Reset if anything changed.
           }
 
           lastItemCount = currentItemCount;
+          lastScrollHeight = currentScrollHeight;
 
-		  // Stop if no more movement after X tries
+          // Re-run the filter on every cycle to catch newly loaded items
+          filterFn();
+
+		  // Stop if nothing has changed for maxIdleTries
 		  if (idleTries >= maxIdleTries) {
 			clearInterval(timer);
 			console.log("SMS Contact Filter: auto-scroll stopped (no new content).");
             if (onComplete) onComplete();
-		  } else {
-            // Scroll to the very bottom to trigger loading more content.
-            scrollEl.scrollTop = scrollEl.scrollHeight;
-          }
+            return; // Exit the interval callback
+		  }
+
+          // If not stopped, log and scroll to the bottom for the next cycle.
+          console.log("SMS Contact Filter: Paging for more chats...");
+          scrollEl.scrollTop = scrollEl.scrollHeight;
+
 		} catch (e) {
 		  console.warn("SMS Contact Filter auto-scroll error:", e);
 		  clearInterval(timer);
