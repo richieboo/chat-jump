@@ -45,6 +45,18 @@
     return null;
   }
 
+  // What counts as a "chat/contact" entry
+  const entriesSelector = [
+    'li',
+    'a[href]',
+    '[role="treeitem"]',
+    '[data-testid*="conversation" i]',
+    '[data-testid*="chat" i]',
+    '[data-qa*="conversation" i]',
+    '[data-qa*="chat" i]',
+    'h2, h3'
+  ].join(',');
+
     // Auto-scroll to load more chats (like repeated Page Down) with stop-on-idle
 	function autoScrollSidebar(sidebar, onComplete) {
 	  const scrollEl = getScrollableContainer(sidebar);
@@ -53,33 +65,36 @@
           return;
       }
 
-	  let lastScrollTop = -1;
 	  let idleTries = 0;
       const maxIdleTries = 3;
-      const interval = 300; // ms between scrolls
+      const interval = 500; // Increased interval for loading
+
+      let lastItemCount = 0;
 
 	  const timer = setInterval(() => {
 		try {
-          const currentScrollTop = scrollEl.scrollTop;
-          const scrollHeight = scrollEl.scrollHeight;
-          const clientHeight = scrollEl.clientHeight;
+          const currentItemCount = sidebar.querySelectorAll(entriesSelector).length;
+          // Check if we are physically at the bottom of the scrollable area.
+          // A small buffer (e.g., 5px) helps with rounding issues.
+          const isAtBottom = scrollEl.scrollHeight - scrollEl.scrollTop - scrollEl.clientHeight < 5;
 
-          // Stop if we are at the bottom and the scroll position isn't changing
-		  if (currentScrollTop === lastScrollTop || currentScrollTop + clientHeight >= scrollHeight) {
-			idleTries++;
-		  } else {
-			idleTries = 0; // reset when new content loads
+          // An attempt is "idle" if we are at the bottom AND the item count hasn't changed.
+          if (isAtBottom && currentItemCount === lastItemCount) {
+              idleTries++;
+          } else {
+              idleTries = 0; // Reset if we scrolled or new items appeared.
           }
 
-          lastScrollTop = currentScrollTop;
+          lastItemCount = currentItemCount;
 
-		  // Stop if no more movement after X tries or we've hit the bottom
+		  // Stop if no more movement after X tries
 		  if (idleTries >= maxIdleTries) {
 			clearInterval(timer);
 			console.log("SMS Contact Filter: auto-scroll stopped (no new content).");
             if (onComplete) onComplete();
 		  } else {
-            scrollEl.scrollTop += 400; // simulate PageDown
+            // Scroll to the very bottom to trigger loading more content.
+            scrollEl.scrollTop = scrollEl.scrollHeight;
           }
 		} catch (e) {
 		  console.warn("SMS Contact Filter auto-scroll error:", e);
@@ -166,7 +181,8 @@
     });
     wrap.insertAdjacentElement('afterend', statusMsg);
 
-    // What counts as a "chat/contact" entry
+    // What counts as a "chat/contact" entry is now in the outer scope
+    /*
     const entriesSelector = [
       'li',
       'a[href]',
@@ -177,6 +193,7 @@
       '[data-qa*="chat" i]',
       'h2, h3'
     ].join(',');
+    */
 
     let isScrolling = false;
     function filterNow() {
