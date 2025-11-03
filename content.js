@@ -46,31 +46,45 @@
   }
 
     // Auto-scroll to load more chats (like repeated Page Down) with stop-on-idle
-	function autoScrollSidebar(sidebar, maxIdleTries = 3, interval = 300) {
+	function autoScrollSidebar(sidebar, onComplete) {
 	  const scrollEl = getScrollableContainer(sidebar);
-	  if (!scrollEl) return;
+	  if (!scrollEl) {
+          if (onComplete) onComplete();
+          return;
+      }
 
-	  let lastScrollTop = scrollEl.scrollTop;
+	  let lastScrollTop = -1;
 	  let idleTries = 0;
+      const maxIdleTries = 3;
+      const interval = 300; // ms between scrolls
 
 	  const timer = setInterval(() => {
 		try {
-		  scrollEl.scrollTop += 400; // simulate PageDown
-		  // Check if the scroll position changed
-		  if (scrollEl.scrollTop === lastScrollTop) {
+          const currentScrollTop = scrollEl.scrollTop;
+          const scrollHeight = scrollEl.scrollHeight;
+          const clientHeight = scrollEl.clientHeight;
+
+          // Stop if we are at the bottom and the scroll position isn't changing
+		  if (currentScrollTop === lastScrollTop || currentScrollTop + clientHeight >= scrollHeight) {
 			idleTries++;
 		  } else {
 			idleTries = 0; // reset when new content loads
-			lastScrollTop = scrollEl.scrollTop;
-		  }
-		  // Stop if no more movement after X tries
+          }
+
+          lastScrollTop = currentScrollTop;
+
+		  // Stop if no more movement after X tries or we've hit the bottom
 		  if (idleTries >= maxIdleTries) {
 			clearInterval(timer);
 			console.log("SMS Contact Filter: auto-scroll stopped (no new content).");
-		  }
+            if (onComplete) onComplete();
+		  } else {
+            scrollEl.scrollTop += 400; // simulate PageDown
+          }
 		} catch (e) {
 		  console.warn("SMS Contact Filter auto-scroll error:", e);
 		  clearInterval(timer);
+          if (onComplete) onComplete();
 		}
 	  }, interval);
 	}
@@ -151,6 +165,7 @@
       'h2, h3'
     ].join(',');
 
+    let isScrolling = false;
     function filterNow() {
       const q = filter.value.trim().toLowerCase();
       const entries = sidebar.querySelectorAll(entriesSelector);
@@ -160,12 +175,25 @@
       });
     }
 
-    filter.addEventListener('input', filterNow);
+    filter.addEventListener('input', () => {
+        // Trigger scroll only on the first input that creates a filter query
+        if (filter.value.trim().length > 0 && !isScrolling) {
+            isScrolling = true;
+            autoScrollSidebar(sidebar, () => {
+                // Scrolling is done, re-apply final filter
+                filterNow();
+                // Allow scrolling to be triggered again if the user clears and re-types
+                // isScrolling will be reset when the filter is cleared
+            });
+        }
+        filterNow();
+    });
 
     function clearFilter() {
       filter.value = '';
       filterNow();
       filter.focus();
+      isScrolling = false; // Reset scrolling lock
     }
 
     clearBtn.addEventListener('click', clearFilter);
@@ -187,8 +215,8 @@
     });
     overlayCleaner.observe(wrap, { childList: true, subtree: true });
 
-    // Kick off auto-scroll to load more chats
-    autoScrollSidebar(sidebar);
+    // We don't need to auto-scroll on attach anymore
+    // It will now trigger on user input
   }
 
   function boot() {
