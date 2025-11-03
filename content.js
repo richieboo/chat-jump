@@ -57,8 +57,20 @@
     'h2, h3'
   ].join(',');
 
+  function debounce(func, wait) {
+    let timeout;
+    return function executedFunction(...args) {
+      const later = () => {
+        clearTimeout(timeout);
+        func(...args);
+      };
+      clearTimeout(timeout);
+      timeout = setTimeout(later, wait);
+    };
+  }
+
     // Auto-scroll to load more chats (like repeated Page Down) with stop-on-idle
-	function autoScrollSidebar(sidebar, onComplete) {
+	function autoScrollSidebar(sidebar, filterFn, onComplete) {
 	  const scrollEl = getScrollableContainer(sidebar);
 	  if (!scrollEl) {
           if (onComplete) onComplete();
@@ -83,6 +95,10 @@
               idleTries++;
           } else {
               idleTries = 0; // Reset if we scrolled or new items appeared.
+              // Re-run the filter whenever new items are detected
+              if (currentItemCount > lastItemCount) {
+                  filterFn();
+              }
           }
 
           lastItemCount = currentItemCount;
@@ -205,29 +221,29 @@
       });
     }
 
-    filter.addEventListener('input', () => {
+    const debouncedFilterAndScroll = debounce(() => {
         const query = filter.value.trim();
-        // Trigger scroll only on the first input that creates a filter query
-        if (query.length > 0 && !isScrolling) {
-            isScrolling = true;
-            statusMsg.textContent = 'Searching for more...';
-            statusMsg.style.display = 'block';
+        if (query.length > 0) {
+            // Always run the initial filter on what's currently visible
+            filterNow();
+            if (!isScrolling) {
+                isScrolling = true;
+                statusMsg.textContent = 'Searching for more...';
+                statusMsg.style.display = 'block';
 
-            autoScrollSidebar(sidebar, () => {
-                // Scrolling is done, re-apply final filter
-                filterNow();
-                statusMsg.textContent = 'All conversations searched.';
-                // isScrolling remains true until filter is cleared, preventing re-trigger
-            });
-        }
-        
-        // Handle clearing the filter manually by backspacing, etc.
-        if (query.length === 0 && isScrolling) {
+                autoScrollSidebar(sidebar, filterNow, () => {
+                    // Final filter after scrolling is complete
+                    filterNow();
+                    statusMsg.textContent = 'All conversations searched.';
+                    // isScrolling remains true until filter is cleared
+                });
+            }
+        } else {
             clearFilter();
         }
+    }, 300); // 300ms delay after user stops typing
 
-        filterNow();
-    });
+    filter.addEventListener('input', debouncedFilterAndScroll);
 
     function clearFilter() {
       if (filter.value !== '') filter.value = '';
