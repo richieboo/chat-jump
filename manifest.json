@@ -21,5 +21,11 @@
   },
   "action": {
     "default_title": "SMS Contact Filter"
-  }
+  },
+  "web_accessible_resources": [
+    {
+      "resources": ["info.html"],
+      "matches": ["https://messages.google.com/*"]
+    }
+  ]
 }

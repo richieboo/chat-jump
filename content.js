@@ -349,6 +349,7 @@
     if (!sidebar || document.getElementById("smsContactFilterInput")) return;
 
     const controlsContainer = document.createElement("div");
+    controlsContainer.id = "smsContactFilterControls";
     Object.assign(controlsContainer.style, {
       background: "rgba(33, 150, 243, 0.12)",
       border: "1px solid rgba(33, 150, 243, 0.35)",
@@ -367,6 +368,7 @@
     const controlsDefaultDisplay = controlsContainer.style.display || "flex";
 
     const toggleButton = document.createElement("button");
+    toggleButton.id = "smsContactFilterToggle";
     toggleButton.type = "button";
     toggleButton.textContent = "🔍 Search/Filter";
     toggleButton.title = "Show search and filter";
@@ -396,6 +398,7 @@
     });
     // Wrapper to position the clear "×" button
     const wrap = document.createElement("div");
+    wrap.id = "smsContactFilterFieldWrap";
     wrap.style.position = "relative";
     wrap.style.maxWidth = "100%";
 
@@ -611,6 +614,7 @@
     });
 
     const searchBtn = document.createElement("button");
+    searchBtn.id = "smsContactFilterSearchBtn";
     searchBtn.type = "button";
     searchBtn.textContent = "🔍";
     searchBtn.title = "Run search";
@@ -642,6 +646,7 @@
     });
 
     const clearBtn = document.createElement("button");
+    clearBtn.id = "smsContactFilterClearBtn";
     clearBtn.type = "button";
     clearBtn.textContent = "×";
     clearBtn.title = "Clear filter";
@@ -675,6 +680,7 @@
     clearBtn.style.visibility = "hidden";
 
     const hideControlsBtn = document.createElement("button");
+    hideControlsBtn.id = "smsContactFilterHideBtn";
     hideControlsBtn.type = "button";
     hideControlsBtn.title = "Hide search and filter";
     hideControlsBtn.textContent = "×";
@@ -707,6 +713,74 @@
     });
     hideControlsBtn.addEventListener("click", () => hideControls());
     controlsContainer.appendChild(hideControlsBtn);
+
+    const infoLinkRow = document.createElement("div");
+    infoLinkRow.id = "smsContactFilterInfoRow";
+    Object.assign(infoLinkRow.style, {
+      display: "flex",
+      justifyContent: "flex-end",
+      marginTop: "-6px",
+      gap: "4px",
+    });
+
+    const infoLink = document.createElement("a");
+    infoLink.id = "smsContactFilterInfoLink";
+    const infoPageUrl =
+      (typeof chrome !== "undefined" &&
+        chrome?.runtime?.getURL?.("info.html")) ||
+      "https://www.buymeacoffee.com/";
+    infoLink.href = infoPageUrl;
+    infoLink.target = "_blank";
+    infoLink.rel = "noopener noreferrer";
+    infoLink.setAttribute(
+      "aria-label",
+      "Learn more about SMS Contact Filter and support development"
+    );
+    infoLink.textContent = "i";
+    Object.assign(infoLink.style, {
+      position: "absolute",
+      bottom: "2px",
+      right: "1px",
+      width: "16px",
+      height: "16px",
+      borderRadius: "50%",
+      border: "none",
+      background: "rgba(255,255,255,0.18)",
+      display: "flex",
+      alignItems: "center",
+      justifyContent: "center",
+      textDecoration: "none",
+      color: "#0d1724",
+      fontSize: "12px",
+      lineHeight: "1",
+      fontWeight: "600",
+      fontFamily: "inherit",
+      cursor: "pointer",
+      boxShadow: "0 1px 3px rgba(0,0,0,0.2)",
+      transition: "background 0.2s, color 0.2s",
+      padding: "2px",
+      paddingTop: "4px",
+    });
+    infoLink.addEventListener("mouseenter", () => {
+      infoLink.style.background = "rgba(255,255,255,0.3)";
+      infoLink.style.color = "#1565c0";
+    });
+    infoLink.addEventListener("mouseleave", () => {
+      infoLink.style.background = "rgba(255,255,255,0.18)";
+      infoLink.style.color = "#0d1724";
+    });
+    infoLink.addEventListener("focus", () => {
+      infoLink.style.background = "rgba(255,255,255,0.3)";
+      infoLink.style.color = "#1565c0";
+    });
+    infoLink.addEventListener("blur", () => {
+      infoLink.style.background = "rgba(255,255,255,0.18)";
+      infoLink.style.color = "#0d1724";
+    });
+    infoLink.addEventListener("click", (event) => {
+      event.stopPropagation();
+    });
+    infoLinkRow.appendChild(infoLink);
 
     filter.addEventListener("focus", () => {
       filter.style.borderColor = "#64b5f6";
@@ -778,6 +852,7 @@
       "(prefers-color-scheme: dark)"
     );
     const searchOptionsWrap = document.createElement("div");
+    searchOptionsWrap.id = "smsContactFilterOptions";
     Object.assign(searchOptionsWrap.style, {
       display: "flex",
       justifyContent: "center",
@@ -793,6 +868,7 @@
     const statusDarkColor = "rgba(255, 255, 255, 0.78)";
 
     const fullScanWarning = document.createElement("div");
+    fullScanWarning.id = "smsContactFilterFullScanWarning";
     fullScanWarning.textContent =
       "Heads-up: full conversation scan opens each chat sequentially, so it can take a while because Google Messages lacks a bulk API.";
     Object.assign(fullScanWarning.style, {
@@ -879,6 +955,7 @@
     }
 
     matchesWrap = document.createElement("div");
+    matchesWrap.id = "smsContactFilterMatches";
     Object.assign(matchesWrap.style, {
       display: "none",
       padding: "10px 12px 12px 12px",
@@ -1803,7 +1880,9 @@
     });
     overlayCleaner.observe(wrap, { childList: true, subtree: true });
 
-    showControls();
+    controlsContainer.appendChild(infoLinkRow);
+
+    hideControls();
 
     // Auto-scroll now runs only when the user explicitly starts a search
   }

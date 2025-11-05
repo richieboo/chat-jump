@@ -3,12 +3,13 @@
   "version": "1.0.0",
   "description": "A Chrome extension to filter SMS contacts.",
   "scripts": {
-    "clean": "rm -rf dist",
-    "build": "npm run clean && mkdir dist && cpx \"{background.js,content.js,manifest.json}\" dist && cpx \"icons/**/*\" dist/icons"
+    "clean": "rimraf dist",
+    "build": "rimraf dist && cpx \"{background.js,content.js,manifest.json,info.html,icons/*}\" dist"
   },
   "author": "",
   "license": "ISC",
   "devDependencies": {
-    "cpx": "^1.5.0"
+    "cpx": "^1.5.0",
+    "rimraf": "^6.1.0"
   }
 }
