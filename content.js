@@ -93,6 +93,14 @@
   let activeEntryDetector = entryDetectors[0];
   let lastSampleLogKey = "";
 
+  function debugPlacement(...args) {
+    try {
+      console.debug("SMS Contact Filter UI:", ...args);
+    } catch (_err) {
+      /* ignore */
+    }
+  }
+
   function uniqueElements(elements) {
     const out = [];
     const seen = new Set();
@@ -351,43 +359,223 @@
       flexDirection: "column",
       gap: "12px",
       fontFamily: 'Roboto, "Segoe UI", "Helvetica Neue", Arial, sans-serif',
+      position: "sticky",
+      top: "8px",
+      zIndex: "1000",
+      backdropFilter: "blur(6px)",
+    });
+    const controlsDefaultDisplay = controlsContainer.style.display || "flex";
+
+    const toggleButton = document.createElement("button");
+    toggleButton.type = "button";
+    toggleButton.textContent = "🔍 Search/Filter";
+    toggleButton.title = "Show search and filter";
+    Object.assign(toggleButton.style, {
+      display: "none",
+      alignItems: "center",
+      gap: "6px",
+      padding: "8px 16px",
+      borderRadius: "999px",
+      border: "1px solid rgba(33,150,243,0.45)",
+      background: "linear-gradient(180deg, #4dabf7, #1976d2)",
+      color: "#ffffff",
+      fontSize: "14px",
+      fontWeight: "600",
+      cursor: "pointer",
+      boxShadow: "0 2px 6px rgba(0,0,0,0.25)",
+      transition: "filter 0.2s, transform 0.2s",
+      textDecoration: "none",
+    });
+    toggleButton.addEventListener("mouseenter", () => {
+      toggleButton.style.filter = "brightness(1.1)";
+      toggleButton.style.transform = "translateY(-1px)";
+    });
+    toggleButton.addEventListener("mouseleave", () => {
+      toggleButton.style.filter = "none";
+      toggleButton.style.transform = "none";
     });
     // Wrapper to position the clear "×" button
     const wrap = document.createElement("div");
     wrap.style.position = "relative";
     wrap.style.maxWidth = "100%";
 
-    let placedNearStartChat = false;
     let horizontalMargin = "10px";
+    let matchesWrap;
+    let conversationBlankOverlay = null;
 
-    const startChatButton = findStartChatButton(sidebar);
-    if (startChatButton) {
-      const startChatBlock = findStartChatBlock(startChatButton, sidebar);
-      const host = startChatBlock?.parentElement;
-      if (host) {
-        host.insertBefore(controlsContainer, startChatBlock.nextSibling);
-        placedNearStartChat = true;
-      } else if (startChatBlock) {
-        startChatBlock.insertAdjacentElement("afterend", controlsContainer);
-        placedNearStartChat = true;
+    function updateMatchesMargin() {
+      if (matchesWrap) {
+        matchesWrap.style.margin = `6px ${horizontalMargin} 12px ${horizontalMargin}`;
       }
     }
 
-    if (!placedNearStartChat) {
-      const parent = sidebar.parentElement;
-      if (parent) {
-        parent.insertBefore(controlsContainer, parent.firstChild);
+    function placeControlsContainerAtPreferredLocation(
+      targetSidebar = sidebar
+    ) {
+      const effectiveSidebar = targetSidebar || sidebar;
+      debugPlacement("placeControlsContainerAtPreferredLocation", {
+        targetProvided: Boolean(targetSidebar),
+        effectiveSidebarExists: Boolean(effectiveSidebar),
+        controlsConnected: controlsContainer.isConnected,
+      });
+      if (controlsContainer.isConnected && controlsContainer.parentElement) {
+        debugPlacement("controls already connected; refreshing margins");
+        // Make sure margins are correct even if already placed.
+        updateMatchesMargin();
+        return;
+      }
+
+      let placedNearStartChat = false;
+      let marginValue = "10px";
+
+      const startButtonCurrent = findStartChatButton(effectiveSidebar);
+      debugPlacement("start chat button search", {
+        found: Boolean(startButtonCurrent),
+      });
+      if (startButtonCurrent) {
+        const blockCurrent = findStartChatBlock(
+          startButtonCurrent,
+          effectiveSidebar
+        );
+        const hostCurrent = blockCurrent?.parentElement;
+        if (hostCurrent) {
+          hostCurrent.insertBefore(controlsContainer, blockCurrent.nextSibling);
+          placedNearStartChat = true;
+          debugPlacement("controls inserted next to start chat host");
+        } else if (blockCurrent) {
+          blockCurrent.insertAdjacentElement("afterend", controlsContainer);
+          placedNearStartChat = true;
+          debugPlacement("controls inserted after start chat block");
+        }
+      }
+
+      if (!placedNearStartChat) {
+        const parent = effectiveSidebar?.parentElement;
+        if (parent) {
+          parent.insertBefore(controlsContainer, parent.firstChild);
+          debugPlacement("controls inserted at sidebar parent top");
+        } else if (effectiveSidebar) {
+          effectiveSidebar.prepend(controlsContainer);
+          debugPlacement("controls prepended to sidebar");
+        } else {
+          document.body.appendChild(controlsContainer);
+          debugPlacement("controls appended to body fallback");
+        }
       } else {
-        sidebar.prepend(controlsContainer);
+        marginValue = "12px";
       }
-    } else {
-      horizontalMargin = "12px";
+
+      horizontalMargin = marginValue;
+
+      const previousDisplay = controlsContainer.style.display;
+      controlsContainer.style.margin = placedNearStartChat
+        ? `8px ${horizontalMargin} 6px ${horizontalMargin}`
+        : "10px";
+      if (!previousDisplay) {
+        controlsContainer.style.display = controlsDefaultDisplay;
+      }
+
+      updateMatchesMargin();
+      debugPlacement("controls placement complete", {
+        margin: controlsContainer.style.margin,
+        parentTag: controlsContainer.parentElement?.tagName,
+      });
     }
 
-    controlsContainer.style.margin = placedNearStartChat
-      ? `8px ${horizontalMargin} 6px ${horizontalMargin}`
-      : "10px";
+    placeControlsContainerAtPreferredLocation(sidebar);
     controlsContainer.appendChild(wrap);
+
+    function ensureControlsAttached() {
+      const latestSidebar = findSidebar() || sidebar;
+      debugPlacement("ensureControlsAttached invoked", {
+        sidebarChanged: latestSidebar !== sidebar,
+      });
+      placeControlsContainerAtPreferredLocation(latestSidebar);
+      if (matchesWrap && !matchesWrap.isConnected) {
+        controlsContainer.insertAdjacentElement("afterend", matchesWrap);
+        updateMatchesMargin();
+        debugPlacement("matches wrap reattached after controls");
+      }
+    }
+
+    const sidebarWrapper = sidebar.parentElement;
+
+    function placeToggleButton() {
+      const currentSidebar = findSidebar() || sidebar;
+      const startButton = findStartChatButton(currentSidebar);
+      const fabCandidate = startButton?.closest?.("mw-fab-link.start-chat");
+      const fab =
+        (fabCandidate && fabCandidate.isConnected ? fabCandidate : null) ||
+        document.querySelector("mw-fab-link.start-chat");
+      debugPlacement("placeToggleButton", {
+        sidebarFound: Boolean(currentSidebar),
+        startButtonFound: Boolean(startButton),
+        fabCandidate: Boolean(fabCandidate),
+        fabResolved: Boolean(fab),
+      });
+      if (fab) {
+        const primaryAnchor = fab.querySelector("a");
+        if (primaryAnchor) {
+          primaryAnchor.insertAdjacentElement("afterend", toggleButton);
+          debugPlacement("toggle placed after primary anchor");
+        } else {
+          fab.appendChild(toggleButton);
+          debugPlacement("toggle appended inside fab");
+        }
+        fab.style.display = fab.style.display || "flex";
+        fab.style.alignItems = fab.style.alignItems || "center";
+        fab.style.gap = fab.style.gap || "8px";
+        toggleButton.style.display = "inline-flex";
+        toggleButton.style.marginLeft = "8px";
+        toggleButton.style.marginTop = "0";
+        toggleButton.style.marginBottom = "0";
+        return true;
+      }
+
+      const mainHeader = document.querySelector("mw-main-nav-header");
+      if (mainHeader) {
+        mainHeader.appendChild(toggleButton);
+        toggleButton.style.display = "inline-flex";
+        toggleButton.style.marginLeft = "auto";
+        toggleButton.style.marginTop = "4px";
+        toggleButton.style.marginBottom = "8px";
+        debugPlacement("toggle appended to main header");
+        return true;
+      }
+
+      const effectiveWrapper =
+        currentSidebar?.parentElement ||
+        sidebarWrapper ||
+        sidebar?.parentElement;
+      if (effectiveWrapper) {
+        effectiveWrapper.insertBefore(toggleButton, currentSidebar || sidebar);
+        toggleButton.style.display = "inline-flex";
+        toggleButton.style.marginLeft = "auto";
+        toggleButton.style.marginTop = "4px";
+        toggleButton.style.marginBottom = "8px";
+        debugPlacement("toggle inserted before sidebar wrapper child");
+        return true;
+      }
+
+      const parentForToggle = controlsContainer.parentElement;
+      if (parentForToggle) {
+        parentForToggle.insertBefore(toggleButton, controlsContainer);
+        toggleButton.style.display = "inline-flex";
+        toggleButton.style.marginLeft = "auto";
+        toggleButton.style.marginBottom = "8px";
+        debugPlacement("toggle inserted before controls container");
+        return true;
+      }
+
+      document.body.appendChild(toggleButton);
+      toggleButton.style.display = "inline-flex";
+      toggleButton.style.margin = "8px";
+      debugPlacement("toggle appended to body fallback");
+      return false;
+    }
+
+    placeToggleButton();
+    toggleButton.addEventListener("click", () => showControls({ focus: true }));
 
     const filter = document.createElement("input");
     filter.type = "text";
@@ -484,6 +672,41 @@
     wrap.appendChild(filter);
     wrap.appendChild(searchBtn);
     wrap.appendChild(clearBtn);
+    clearBtn.style.visibility = "hidden";
+
+    const hideControlsBtn = document.createElement("button");
+    hideControlsBtn.type = "button";
+    hideControlsBtn.title = "Hide search and filter";
+    hideControlsBtn.textContent = "×";
+    Object.assign(hideControlsBtn.style, {
+      position: "absolute",
+      top: "3px",
+      right: "1px",
+      width: "16px",
+      height: "16px",
+      border: "none",
+      borderRadius: "50%",
+      background: "rgba(255,255,255,0.18)",
+      color: "#0d1724",
+      fontSize: "12px",
+      lineHeight: "1",
+      cursor: "pointer",
+      display: "flex",
+      alignItems: "center",
+      justifyContent: "center",
+      boxShadow: "0 1px 3px rgba(0,0,0,0.2)",
+      transition: "background 0.2s, color 0.2s",
+    });
+    hideControlsBtn.addEventListener("mouseenter", () => {
+      hideControlsBtn.style.background = "rgba(255,255,255,0.3)";
+      hideControlsBtn.style.color = "#1565c0";
+    });
+    hideControlsBtn.addEventListener("mouseleave", () => {
+      hideControlsBtn.style.background = "rgba(255,255,255,0.18)";
+      hideControlsBtn.style.color = "#0d1724";
+    });
+    hideControlsBtn.addEventListener("click", () => hideControls());
+    controlsContainer.appendChild(hideControlsBtn);
 
     filter.addEventListener("focus", () => {
       filter.style.borderColor = "#64b5f6";
@@ -529,6 +752,13 @@
       .scf-hide-loading .mdc-circular-progress {
         display: none !important;
       }
+      .scf-conversation-blank > *:not([data-scf-empty]) {
+        visibility: hidden !important;
+        pointer-events: none !important;
+      }
+      .scf-conversation-blank [data-scf-empty] {
+        display: flex !important;
+      }
     `;
     document.head.appendChild(style);
 
@@ -544,6 +774,9 @@
     });
     controlsContainer.appendChild(statusMsg);
 
+    const prefersDarkScheme = window.matchMedia?.(
+      "(prefers-color-scheme: dark)"
+    );
     const searchOptionsWrap = document.createElement("div");
     Object.assign(searchOptionsWrap.style, {
       display: "flex",
@@ -555,12 +788,22 @@
     controlsContainer.appendChild(searchOptionsWrap);
 
     const optionLabelNodes = [];
-    const prefersDarkScheme = window.matchMedia?.(
-      "(prefers-color-scheme: dark)"
-    );
-    let isDarkMode = prefersDarkScheme ? prefersDarkScheme.matches : true;
+    let isDarkMode = prefersDarkScheme ? prefersDarkScheme.matches : false;
+    const statusLightColor = "rgba(51, 51, 51, 0.85)";
+    const statusDarkColor = "rgba(255, 255, 255, 0.78)";
 
-    function applyOptionLabelColors() {
+    const fullScanWarning = document.createElement("div");
+    fullScanWarning.textContent =
+      "Heads-up: full conversation scan opens each chat sequentially, so it can take a while because Google Messages lacks a bulk API.";
+    Object.assign(fullScanWarning.style, {
+      display: "none",
+      fontSize: "12px",
+      lineHeight: "1.4",
+      textAlign: "center",
+    });
+    controlsContainer.appendChild(fullScanWarning);
+
+    function applyThemeColors() {
       const optionTextColor = isDarkMode
         ? "rgba(255, 255, 255, 0.82)"
         : "rgba(0, 0, 0, 0.75)";
@@ -572,9 +815,11 @@
         ? "rgba(255, 255, 255, 0.8)"
         : "rgba(0, 0, 0, 0.65)";
 
-      statusMsg.style.color = isDarkMode
-        ? "rgba(255, 255, 255, 0.78)"
-        : "rgba(51, 51, 51, 0.85)";
+      const statusColor = isDarkMode ? statusDarkColor : statusLightColor;
+      statusMsg.style.color = statusColor;
+      fullScanWarning.style.color = isDarkMode
+        ? "rgba(255, 255, 255, 0.75)"
+        : "rgba(0, 0, 0, 0.6)";
     }
 
     function createRadioOption(value, label, isChecked) {
@@ -610,12 +855,21 @@
       createRadioOption("fullConversation", "Full Conversation", false)
     );
 
-    applyOptionLabelColors();
+    function updateFullScanWarning() {
+      const selected = document.querySelector(
+        'input[name="searchMode"]:checked'
+      );
+      const isFullConversationMode = selected?.value === "fullConversation";
+      fullScanWarning.style.display = isFullConversationMode ? "block" : "none";
+    }
+
+    applyThemeColors();
+    updateFullScanWarning();
 
     if (prefersDarkScheme) {
       const handleSchemeChange = (event) => {
         isDarkMode = event.matches;
-        applyOptionLabelColors();
+        applyThemeColors();
       };
       if (typeof prefersDarkScheme.addEventListener === "function") {
         prefersDarkScheme.addEventListener("change", handleSchemeChange);
@@ -624,10 +878,9 @@
       }
     }
 
-    const matchesWrap = document.createElement("div");
+    matchesWrap = document.createElement("div");
     Object.assign(matchesWrap.style, {
       display: "none",
-      margin: `6px ${horizontalMargin} 12px ${horizontalMargin}`,
       padding: "10px 12px 12px 12px",
       borderRadius: "10px",
       border: "1px solid rgba(33, 150, 243, 0.35)",
@@ -638,6 +891,7 @@
       position: "relative",
       fontFamily: 'Roboto, "Segoe UI", "Helvetica Neue", Arial, sans-serif',
     });
+    updateMatchesMargin();
 
     const matchesCloseBtn = document.createElement("button");
     matchesCloseBtn.type = "button";
@@ -703,6 +957,8 @@
     controlsContainer.insertAdjacentElement("afterend", matchesWrap);
 
     searchOptionsWrap.addEventListener("change", () => {
+      updateFullScanWarning();
+      cancelFullConversationScan();
       lastSampleLogKey = "";
       suppressMatchesPanel = false;
       if (isScrolling) {
@@ -721,12 +977,320 @@
     let cancelAutoScroll = null;
     let lastMatchesSignature = "";
     let suppressMatchesPanel = false;
+    let fullScanController = null;
+    let lastSearchMode = "chatName";
+
+    function clearActiveConversationSelection() {
+      try {
+        const sidebar = findSidebar();
+        if (!sidebar) return;
+        const activeEntry = sidebar.querySelector(
+          "[aria-selected='true'], [selected], .selected, [data-focused='true'], [aria-current='true']"
+        );
+        if (activeEntry) {
+          activeEntry.removeAttribute("aria-selected");
+          activeEntry.removeAttribute("selected");
+          activeEntry.classList.remove("selected", "active");
+        }
+        setConversationBlank(true);
+      } catch (err) {
+        console.debug("SMS Contact Filter: clear active selection failed", err);
+      }
+    }
 
     function clearMatches(setSuppressed = false) {
       if (setSuppressed) suppressMatchesPanel = true;
       matchesWrap.style.display = "none";
       matchesList.textContent = "";
       lastMatchesSignature = "";
+      debugPlacement("clearMatches", {
+        setSuppressed,
+        suppressMatchesPanel,
+      });
+    }
+
+    function updateClearButtonVisibility() {
+      clearBtn.style.visibility = filter.value.trim() ? "visible" : "hidden";
+    }
+
+    function setConversationBlank(active) {
+      const container = document.querySelector("mw-conversation-container");
+      if (!container) return;
+      if (active) {
+        container.classList.add("scf-conversation-blank");
+        if (!conversationBlankOverlay) {
+          conversationBlankOverlay = document.createElement("div");
+          conversationBlankOverlay.setAttribute("data-scf-empty", "true");
+          Object.assign(conversationBlankOverlay.style, {
+            display: "none",
+            alignItems: "center",
+            justifyContent: "center",
+            height: "100%",
+            width: "100%",
+            color: "rgba(0,0,0,0.45)",
+            fontSize: "18px",
+            fontWeight: "500",
+            textAlign: "center",
+          });
+          conversationBlankOverlay.textContent = "Select a conversation";
+        }
+        if (!conversationBlankOverlay.isConnected) {
+          container.appendChild(conversationBlankOverlay);
+        }
+      } else {
+        container.classList.remove("scf-conversation-blank");
+        conversationBlankOverlay?.remove();
+      }
+    }
+
+    function cancelFullConversationScan() {
+      if (fullScanController) {
+        fullScanController.cancelled = true;
+        clearControllerTimeouts(fullScanController);
+        fullScanController = null;
+      }
+    }
+
+    function showControls({ focus = false } = {}) {
+      debugPlacement("showControls", {
+        focus,
+        controlsConnected: controlsContainer.isConnected,
+        toggleConnected: toggleButton.isConnected,
+      });
+      ensureControlsAttached();
+      controlsContainer.style.display = controlsDefaultDisplay;
+      toggleButton.style.display = "none";
+      suppressMatchesPanel = false;
+      updateFullScanWarning();
+      updateClearButtonVisibility();
+      filterNow();
+      if (focus) {
+        requestAnimationFrame(() => {
+          filter.focus({ preventScroll: true });
+          filter.select();
+        });
+      }
+    }
+
+    function hideControls() {
+      debugPlacement("hideControls", {
+        isScrolling,
+        toggleConnected: toggleButton.isConnected,
+      });
+      if (isScrolling) {
+        stopSearch("user");
+      } else {
+        cancelActiveScroll();
+      }
+      const hadValue = Boolean(filter.value.trim());
+      clearFilter();
+      if (!hadValue) {
+        clearMatches(true);
+      } else {
+        suppressMatchesPanel = true;
+      }
+      statusMsg.style.display = "none";
+      statusMsg.textContent = "";
+      controlsContainer.style.display = "none";
+      if (!toggleButton.isConnected) {
+        placeToggleButton();
+      }
+      toggleButton.style.display = "inline-flex";
+      setSearchingState(false);
+      filter.blur();
+      updateClearButtonVisibility();
+      cancelFullConversationScan();
+      setConversationBlank(false);
+    }
+
+    function getEntryConversationId(entry) {
+      return (
+        entry.getAttribute("data-e2e-conversation") ||
+        entry.dataset?.e2eConversation ||
+        entry.querySelector("[data-e2e-conversation]")?.dataset
+          ?.e2eConversation ||
+        null
+      );
+    }
+
+    function findActiveConversationEntry(entries) {
+      return (
+        entries.find(
+          (entry) => entry.getAttribute("aria-selected") === "true"
+        ) ||
+        entries.find((entry) => entry.classList.contains("active")) ||
+        null
+      );
+    }
+
+    function buildSnippetFromText(sourceText, query) {
+      if (!sourceText) return "";
+      const lower = sourceText.toLowerCase();
+      const lowerQuery = (query || "").toLowerCase();
+      const idx = lowerQuery ? lower.indexOf(lowerQuery) : -1;
+      if (idx === -1)
+        return sourceText.slice(0, 120).replace(/\s+/g, " ").trim();
+      const start = Math.max(0, idx - 60);
+      const end = Math.min(sourceText.length, idx + lowerQuery.length + 60);
+      return sourceText.slice(start, end).replace(/\s+/g, " ").trim();
+    }
+
+    function waitFor(ms, controller) {
+      return new Promise((resolve) => {
+        const id = setTimeout(() => resolve(), ms);
+        if (controller) {
+          controller.cleanupTimeouts ??= [];
+          controller.cleanupTimeouts.push(id);
+        }
+      });
+    }
+
+    function clearControllerTimeouts(controller) {
+      if (!controller?.cleanupTimeouts) return;
+      controller.cleanupTimeouts.forEach((id) => clearTimeout(id));
+      controller.cleanupTimeouts.length = 0;
+    }
+
+    function isEntryActive(entry) {
+      if (!entry?.isConnected) return false;
+      return entry.matches(
+        "[aria-selected='true'], [selected], .selected, [data-focused='true'], [aria-current='true']"
+      );
+    }
+
+    async function waitUntil(
+      predicate,
+      controller,
+      timeout = 4000,
+      interval = 120
+    ) {
+      const start = Date.now();
+      while (Date.now() - start < timeout) {
+        if (controller?.cancelled) return false;
+        try {
+          if (predicate()) return true;
+        } catch (err) {
+          console.debug("SMS Contact Filter waitUntil error", err);
+        }
+        await waitFor(interval, controller);
+      }
+      if (controller?.cancelled) return false;
+      try {
+        return predicate();
+      } catch (err) {
+        console.debug("SMS Contact Filter waitUntil final error", err);
+        return false;
+      }
+    }
+
+    async function openConversationEntry(entry, controller, options = {}) {
+      const { skipIfActive = false } = options;
+      if (!entry?.isConnected) return null;
+
+      if (skipIfActive && isEntryActive(entry)) {
+        return entry;
+      }
+
+      const clickable =
+        entry.querySelector('a, [role="option"], button') || entry;
+
+      clickable.dispatchEvent(
+        new MouseEvent("click", { bubbles: true, cancelable: true })
+      );
+
+      await waitUntil(() => isEntryActive(entry), controller, 5000, 150);
+      if (controller?.cancelled) return null;
+
+      await waitFor(200, controller);
+      return entry;
+    }
+
+    async function extractConversationText(controller) {
+      if (controller?.cancelled) return "";
+      const container = document.querySelector("mw-conversation-container");
+      if (!container) return "";
+      const messageRegion =
+        container.querySelector("mw-message-list") || container;
+      const text = messageRegion?.innerText || "";
+      return text.replace(/\s+/g, " ").trim();
+    }
+
+    async function runFullConversationScan(queryLower, displayQuery) {
+      cancelFullConversationScan();
+      if (!queryLower) return;
+      const entries = collectConversationEntries(sidebar);
+      if (!entries.length) return;
+
+      const controller = {
+        cancelled: false,
+        cleanupTimeouts: [],
+      };
+      fullScanController = controller;
+
+      const activeEntry = findActiveConversationEntry(entries);
+      const slowWarning =
+        "This may take a while because Google Messages loads each chat individually.";
+      statusMsg.style.display = "block";
+      statusMsg.textContent = `Scanning conversations 0/${entries.length}… ${slowWarning}`;
+
+      renderMatches([]);
+
+      const results = [];
+
+      for (let i = 0; i < entries.length; i++) {
+        const entry = entries[i];
+        if (controller.cancelled) break;
+        await openConversationEntry(entry, controller, {
+          skipIfActive: entry === activeEntry,
+        });
+        if (controller.cancelled) break;
+        await waitFor(250, controller);
+        if (controller.cancelled) break;
+        const text = await extractConversationText(controller);
+        if (controller.cancelled) break;
+        const lower = text.toLowerCase();
+        if (lower.includes(queryLower)) {
+          results.push({
+            node: entry,
+            key: getEntryKey(entry, i),
+            snippet: buildSnippetFromText(text, displayQuery || queryLower),
+          });
+          renderMatches(results.map((match) => ({ ...match })));
+        }
+        if (!controller.cancelled) {
+          statusMsg.textContent = `Scanning conversations ${i + 1}/${
+            entries.length
+          }… ${slowWarning}`;
+        }
+      }
+
+      if (!controller.cancelled && activeEntry) {
+        await openConversationEntry(activeEntry, controller, {
+          skipIfActive: true,
+        });
+      }
+
+      clearControllerTimeouts(controller);
+
+      if (controller.cancelled) {
+        statusMsg.textContent = "Search cancelled.";
+        statusMsg.style.display = "block";
+        return;
+      }
+      fullScanController = null;
+
+      if (results.length) {
+        statusMsg.textContent = `Found ${results.length} conversation match${
+          results.length === 1 ? "" : "es"
+        } for "${displayQuery || queryLower}".`;
+        statusMsg.style.display = "block";
+      } else {
+        renderMatches([]);
+        statusMsg.textContent = `No matches for "${
+          displayQuery || queryLower
+        }".`;
+        statusMsg.style.display = "block";
+      }
     }
 
     function getEntryKey(node, fallbackIndex) {
@@ -768,7 +1332,8 @@
       matchesList.textContent = "";
 
       const seen = new Set();
-      for (const { node, key } of matches) {
+      for (const match of matches) {
+        const { node, key } = match;
         if (!key || seen.has(key)) continue;
         seen.add(key);
 
@@ -783,8 +1348,9 @@
         );
         const name =
           (nameEl?.textContent || "").trim() || "Unnamed conversation";
-        const snippet = (snippetEl?.textContent || "").trim();
-        const timestamp = (timestampEl?.textContent || "").trim();
+        const snippet = match.snippet || (snippetEl?.textContent || "").trim();
+        const timestamp =
+          match.timestamp || (timestampEl?.textContent || "").trim();
 
         const button = document.createElement("button");
         button.type = "button";
@@ -821,8 +1387,14 @@
         }
 
         button.addEventListener("click", () => {
+          debugPlacement("match click", {
+            suppressMatchesPanel,
+            controlsDisplay: controlsContainer.style.display,
+            toggleDisplay: toggleButton.style.display,
+          });
           try {
             clearMatches(true);
+            setConversationBlank(false);
             stopSearch("match");
             const clickable = node.querySelector('a, [role="option"], button');
             if (clickable) {
@@ -855,6 +1427,8 @@
         'input[name="searchMode"]:checked'
       );
       const searchMode = searchModeEl ? searchModeEl.value : "chatName";
+      const isFullConversationMode = searchMode === "fullConversation";
+      lastSearchMode = searchMode;
       const entries = collectConversationEntries(sidebar);
       if (q && entries.length === 0) {
         console.warn(
@@ -885,7 +1459,7 @@
               .filter((line) => line.length > 0);
             textToSearch = (lines[0] || "").toLowerCase();
           }
-        } else {
+        } else if (!isFullConversationMode) {
           textToSearch = (node.textContent || "").trim().toLowerCase();
         }
 
@@ -902,21 +1476,36 @@
           }
         }
 
-        const match = !q || textToSearch.includes(q);
-        const shouldHide = q && !match && hasLoadedAll;
-        const shouldDim = q && !match && !hasLoadedAll;
+        const match = isFullConversationMode
+          ? !q
+          : !q || textToSearch.includes(q);
+        const shouldHide = isFullConversationMode
+          ? false
+          : q && !match && hasLoadedAll;
+        const shouldDim = isFullConversationMode
+          ? false
+          : q && !match && !hasLoadedAll;
         node.classList.toggle("scf-hidden", shouldHide);
         node.classList.toggle("scf-dimmed", shouldDim);
 
-        if (q && match) {
+        if (!isFullConversationMode && q && match) {
           matches.push({ node, key: getEntryKey(node, index) });
         }
       });
 
-      renderMatches(q ? matches : []);
+      if (!isFullConversationMode) {
+        renderMatches(q ? matches : []);
+      } else if (!fullScanController && !q) {
+        renderMatches([]);
+      }
     }
 
     function setSearchingState(active) {
+      debugPlacement("setSearchingState", {
+        active,
+        buttonDisplay: searchBtn.style.display,
+        text: searchBtn.textContent,
+      });
       if (active) {
         searchBtn.disabled = false;
         searchBtn.textContent = "🛑";
@@ -948,12 +1537,19 @@
       if (reason !== "complete") {
         setLoadingIndicatorSuppressed(sidebar, true);
       }
+      cancelFullConversationScan();
     }
 
     function stopSearch(reason = "user") {
+      debugPlacement("stopSearch", {
+        reason,
+        wasScrolling: isScrolling,
+        hasCancelAutoScroll: Boolean(cancelAutoScroll),
+      });
       const wasScrolling = isScrolling;
       const hadActiveScroll = Boolean(cancelAutoScroll);
       cancelActiveScroll(reason);
+      cancelFullConversationScan();
       hasLoadedAll = true;
       filterNow();
 
@@ -976,6 +1572,11 @@
 
       isScrolling = false;
       setSearchingState(false);
+      debugPlacement("stopSearch complete", {
+        controlsDisplay: controlsContainer.style.display,
+        toggleDisplay: toggleButton.style.display,
+        suppressMatchesPanel,
+      });
     }
 
     function startSearch() {
@@ -985,15 +1586,28 @@
         clearFilter();
         return;
       }
+      const searchModeEl = document.querySelector(
+        'input[name="searchMode"]:checked'
+      );
+      const searchMode = searchModeEl ? searchModeEl.value : "chatName";
+      const isFullConversationMode = searchMode === "fullConversation";
+      lastSearchMode = searchMode;
+      if (searchMode === "chatName") {
+        clearActiveConversationSelection();
+      }
+      const normalizedQuery = query.toLowerCase();
 
       cancelActiveScroll("cancelled");
+      cancelFullConversationScan();
       lastSampleLogKey = "";
       hasLoadedAll = false;
       isScrolling = true;
       suppressMatchesPanel = false;
       filterNow();
 
-      statusMsg.textContent = "Searching for more...";
+      statusMsg.textContent = isFullConversationMode
+        ? "Gathering conversations… Full scan opens each chat sequentially, so please hang tight."
+        : "Searching for more...";
       statusMsg.style.display = "block";
       setSearchingState(true);
       setLoadingIndicatorSuppressed(sidebar, false);
@@ -1006,6 +1620,19 @@
           if (finalReason !== "cancelled") {
             hasLoadedAll = true;
             filterNow();
+          }
+
+          if (isFullConversationMode && finalReason !== "cancelled") {
+            statusMsg.textContent =
+              "Scanning conversations… This may take a while because Google Messages loads each chat individually.";
+            statusMsg.style.display = "block";
+            runFullConversationScan(normalizedQuery, query).finally(() => {
+              isScrolling = false;
+              setSearchingState(false);
+              setLoadingIndicatorSuppressed(sidebar, true);
+              updateClearButtonVisibility();
+            });
+            return;
           }
 
           if (finalReason === "complete") {
@@ -1025,6 +1652,10 @@
             statusMsg.style.display = "block";
           }
 
+          if (finalReason === "complete" && lastSearchMode === "chatName") {
+            clearMatches(true);
+          }
+
           isScrolling = false;
           setSearchingState(false);
           setLoadingIndicatorSuppressed(sidebar, true);
@@ -1034,11 +1665,26 @@
       if (!cancelAutoScroll) {
         hasLoadedAll = true;
         filterNow();
-        statusMsg.textContent = "All conversations searched.";
-        statusMsg.style.display = "block";
-        isScrolling = false;
-        setSearchingState(false);
-        setLoadingIndicatorSuppressed(sidebar, true);
+        if (isFullConversationMode) {
+          statusMsg.textContent =
+            "Scanning conversations… This may take a while because Google Messages loads each chat individually.";
+          statusMsg.style.display = "block";
+          runFullConversationScan(normalizedQuery, query).finally(() => {
+            isScrolling = false;
+            setSearchingState(false);
+            setLoadingIndicatorSuppressed(sidebar, true);
+            updateClearButtonVisibility();
+          });
+        } else {
+          statusMsg.textContent = "All conversations searched.";
+          statusMsg.style.display = "block";
+          isScrolling = false;
+          setSearchingState(false);
+          setLoadingIndicatorSuppressed(sidebar, true);
+          if (lastSearchMode === "chatName") {
+            clearMatches(true);
+          }
+        }
       }
     }
 
@@ -1049,6 +1695,7 @@
         return;
       }
 
+      cancelFullConversationScan();
       cancelActiveScroll();
       isScrolling = false;
       hasLoadedAll = false;
@@ -1058,6 +1705,7 @@
       statusMsg.textContent = "";
       setSearchingState(false);
       filterNow();
+      updateClearButtonVisibility();
     });
 
     searchBtn.addEventListener("click", () => {
@@ -1069,7 +1717,9 @@
     });
 
     function clearFilter() {
+      debugPlacement("clearFilter invoked");
       cancelActiveScroll();
+      cancelFullConversationScan();
       if (filter.value !== "") filter.value = "";
       lastSampleLogKey = "";
       hasLoadedAll = false;
@@ -1080,6 +1730,7 @@
       statusMsg.style.display = "none";
       statusMsg.textContent = "";
       setSearchingState(false);
+      updateClearButtonVisibility();
     }
 
     clearBtn.addEventListener("click", clearFilter);
@@ -1093,6 +1744,7 @@
         }
       } else if (e.key === "Escape") {
         clearFilter();
+        clearActiveConversationSelection();
       }
     });
 
@@ -1101,6 +1753,9 @@
       (event) => {
         const insideControls = controlsContainer.contains(event.target);
         const insideMatches = matchesWrap.contains(event.target);
+        if (!insideControls) {
+          setConversationBlank(false);
+        }
 
         if (
           !insideControls &&
@@ -1118,7 +1773,22 @@
     );
 
     // Re-apply filter when the chat list changes (new messages, etc.)
-    new MutationObserver(filterNow).observe(sidebar, {
+    const sidebarObserver = new MutationObserver((mutations) => {
+      debugPlacement("sidebar mutation observed", {
+        mutationCount: mutations?.length || 0,
+        controlsConnected: controlsContainer.isConnected,
+        toggleConnected: toggleButton.isConnected,
+      });
+      ensureControlsAttached();
+      if (
+        controlsContainer.style.display === "none" &&
+        !toggleButton.isConnected
+      ) {
+        placeToggleButton();
+      }
+      filterNow();
+    });
+    sidebarObserver.observe(sidebar, {
       childList: true,
       subtree: true,
     });
@@ -1132,6 +1802,8 @@
       }
     });
     overlayCleaner.observe(wrap, { childList: true, subtree: true });
+
+    showControls();
 
     // Auto-scroll now runs only when the user explicitly starts a search
   }
