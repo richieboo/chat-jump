@@ -3,7 +3,7 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>About SMS Contact Filter</title>
+    <title>About Chat Jump</title>
     <style>
       :root {
         color-scheme: light dark;
@@ -13,13 +13,14 @@
         --card-dark: rgba(18, 28, 44, 0.86);
         --text-light: #142033;
         --text-dark: #e7f1ff;
-        --accent: #1976d2;
-        --accent-dark: #63a4ff;
+        --accent: #81c347;
+        --accent-dark: #5f8f29;
       }
 
       body {
         margin: 0;
-        font-family: "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+        font-family: "Google Sans", "Google Sans Text", Roboto, "Helvetica Neue",
+          Arial, sans-serif;
         background: var(--bg-light);
         color: var(--text-light);
         display: flex;
@@ -58,7 +59,7 @@
         width: 80px;
         height: 80px;
         border-radius: 18px;
-        box-shadow: 0 12px 28px rgba(25, 118, 210, 0.32);
+        box-shadow: 0 12px 28px rgba(95, 143, 41, 0.28);
       }
 
       h1 {
@@ -69,14 +70,14 @@
 
       header p {
         margin: 0 auto;
-        max-width: 480px;
+        max-width: 525px;
         line-height: 1.6;
         font-size: 1rem;
       }
 
       section {
         margin-bottom: 28px;
-        border-left: 4px solid rgba(25, 118, 210, 0.2);
+        border-left: 4px solid rgba(129, 195, 71, 0.22);
         padding-left: 18px;
       }
 
@@ -104,19 +105,19 @@
         padding: 12px 24px;
         border-radius: 999px;
         border: none;
-        background: linear-gradient(135deg, var(--accent), #0d47a1);
+        background: linear-gradient(135deg, var(--accent), #4f7622);
         color: #ffffff;
         font-size: 1rem;
         font-weight: 600;
         text-decoration: none;
-        box-shadow: 0 12px 24px rgba(13, 71, 161, 0.35);
+        box-shadow: 0 12px 24px rgba(79, 118, 34, 0.35);
         transition: transform 0.2s ease, box-shadow 0.2s ease;
       }
 
       .support a:hover,
       .support a:focus {
         transform: translateY(-2px);
-        box-shadow: 0 18px 34px rgba(13, 71, 161, 0.45);
+        box-shadow: 0 18px 34px rgba(79, 118, 34, 0.45);
       }
 
       footer {
@@ -146,12 +147,12 @@
   <body>
     <div class="page">
       <header>
-        <img src="icons/icon128.png" alt="SMS Contact Filter icon" />
-        <h1>SMS Contact Filter</h1>
+        <img src="icons/icon128.png" alt="Chat Jump icon" />
+        <h1>Chat Jump</h1>
         <p>
-          Stay focused in Google Messages™. Instantly surface the conversation
-          you need with blazing-fast filtering, bulk search options, and helpers
-          tailored for power users.
+          Jump back into your conversations faster. Chat Jump helps you quickly
+          locate and reopen past chats in Google Messages™ by searching names or
+          keywords — no more scrolling through endless conversations.
         </p>
       </header>
 
@@ -159,17 +160,21 @@
         <section>
           <h2>Highlights</h2>
           <ul>
-            <li>Filter contacts and threads in real time as you type.</li>
             <li>
-              Open matching conversations directly without leaving the sidebar.
+              Search your conversations by contact or chat name and open them
+              instantly.
             </li>
             <li>
-              Run deep-dive scans that step through every chat automatically
-              when you need to search message contents.
+              Click any result to jump straight into that chat and continue your
+              conversation.
             </li>
             <li>
-              Hide distractions and jump straight to the people you chat with
-              most.
+              Choose <strong>Full Conversation</strong> mode to search through
+              message text when you need deeper results.
+            </li>
+            <li>
+              Finds what you need fast — from your latest chats to the ones
+              buried deep in history.
             </li>
           </ul>
         </section>
@@ -177,20 +182,30 @@
         <section>
           <h2>Getting the Most Out of It</h2>
           <ul>
+            <li>Type a name or word to start narrowing down your chats.</li>
             <li>
-              Use the toggle button to keep the interface clean when you are
-              done.
+              Click the magnifying-glass icon or press <strong>Enter</strong> to
+              scan through older conversations.
             </li>
             <li>
-              Press <strong>Enter</strong> to run a full-content search, or
-              <strong>Esc</strong> to reset.
+              Switch between <strong>Chat Name</strong> and
+              <strong>Full Conversation</strong> modes depending on what you
+              need.
             </li>
             <li>
-              Hover the match list to preview conversations before jumping in.
+              Click a result to open the chat right away and pick up where you
+              left off.
             </li>
             <li>
-              Need help? Reach out via the project repository or the Chrome Web
-              Store listing.
+              Press <strong>Esc</strong> to reset your search when you’re done.
+            </li>
+            <li>
+              Use the Chat Jump toggle button if you want to show or hide the
+              panel.
+            </li>
+            <li>
+              Need help? Visit the project repository or Chrome Web Store
+              listing for more information.
             </li>
           </ul>
         </section>
@@ -198,9 +213,10 @@
         <section>
           <h2>Support the Project</h2>
           <p class="muted">
-            Coffee fuels late-night debugging sessions! If SMS Contact Filter
-            saves you time, consider buying the developer a coffee to keep the
-            updates coming.
+            Chat Jump is a small, independent project built with care — and
+            plenty of coffee. ☕ If it helps you get to your conversations
+            faster, consider buying the developer a coffee to support future
+            updates and new features.
           </p>
           <div class="support">
             <a
@@ -212,11 +228,27 @@
             </a>
           </div>
         </section>
+
+        <section>
+          <h2>Get in Touch</h2>
+          <p class="muted">
+            Have questions, comments, suggestions, or ideas for improvements?
+            I'd love to hear from you!
+          </p>
+          <div class="support">
+            <a
+              href="mailto:richie@workingdogworx.com?subject=ChatJump%20Feedback"
+              rel="noopener noreferrer"
+            >
+              📧 Email Richie
+            </a>
+          </div>
+        </section>
       </main>
 
       <footer>
-        Crafted with care for the Google Messages™ web app. This project is not
-        affiliated with or endorsed by Google LLC.
+        Made with care for the Google Messages™ web app. Not affiliated with or
+        endorsed by Google LLC.
       </footer>
     </div>
   </body>

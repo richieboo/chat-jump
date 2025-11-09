@@ -1,5 +1,12 @@
 (function () {
-  console.info("SMS Contact Filter: content script executing");
+  console.info("Chat Jump: content script executing");
+  const GOOGLE_SANS_STACK = '"Google Sans", "Google Sans Text", Roboto, "Helvetica Neue", Arial, sans-serif';
+  const ACCENT_BASE = "#81c347";
+  const ACCENT_BASE_LIGHT = "#9ddf60";
+  const ACCENT_BASE_DARK = "#5f8f29";
+  const ACCENT_BORDER_COLOR = "rgba(129, 195, 71, 0.35)";
+  const ACCENT_SURFACE_BG = "rgba(129, 195, 71, 0.14)";
+  const ACCENT_FOCUS_RING = "0 0 0 3px rgba(129, 195, 71, 0.25)";
   // Try to find the chats/contacts sidebar
   function findSidebar(root = document) {
     // Generic sidebar-ish selectors
@@ -95,7 +102,7 @@
 
   function debugPlacement(...args) {
     try {
-      console.debug("SMS Contact Filter UI:", ...args);
+      console.debug("Chat Jump UI:", ...args);
     } catch (_err) {
       /* ignore */
     }
@@ -122,7 +129,7 @@
     const btn = sidebar.querySelector(selector);
     if (btn && !btn.disabled) {
       btn.click();
-      console.info("SMS Contact Filter: clicked Load more conversations");
+      console.info("Chat Jump: clicked Load more conversations");
       return true;
     }
     return false;
@@ -141,7 +148,7 @@
       if (matches.length > 0) {
         activeEntryDetector = detector;
         console.info(
-          "SMS Contact Filter: switched detector to",
+          "Chat Jump: switched detector to",
           detector.name,
           "matches",
           matches.length
@@ -246,7 +253,7 @@
   }
 
   // Auto-scroll to load more chats (like repeated Page Down) with stop-on-idle
-  function autoScrollSidebar(sidebar, filterFn, onComplete) {
+  function autoScrollSidebar(sidebar, filterFn, onComplete, statusUpdateFn) {
     const scrollEl = getScrollableContainer(sidebar);
     if (!scrollEl) {
       if (onComplete) onComplete("complete");
@@ -272,7 +279,7 @@
         onComplete?.(reason);
       } catch (err) {
         console.warn(
-          "SMS Contact Filter: auto-scroll completion handler error",
+          "Chat Jump: auto-scroll completion handler error",
           err
         );
       }
@@ -284,6 +291,11 @@
       try {
         const currentItemCount = countConversationEntries(sidebar);
         const currentScrollHeight = scrollEl.scrollHeight;
+
+        // Update status with current count if callback provided
+        if (statusUpdateFn) {
+          statusUpdateFn(currentItemCount);
+        }
 
         // Re-run the filter on every cycle to catch newly loaded items
         filterFn();
@@ -314,17 +326,17 @@
           }
 
           console.log(
-            "SMS Contact Filter: auto-scroll stopped (no new content)."
+            "Chat Jump: auto-scroll stopped (no new content)."
           );
           finish("complete");
           return; // Exit the interval callback
         }
 
         // If not stopped, log and scroll to the bottom for the next cycle.
-        console.log("SMS Contact Filter: Paging for more chats...");
+        console.log("Chat Jump: Paging for more chats...");
         scrollEl.scrollTop = scrollEl.scrollHeight;
       } catch (e) {
-        console.warn("SMS Contact Filter auto-scroll error:", e);
+        console.warn("Chat Jump auto-scroll error:", e);
         finish("error");
       }
     }, interval);
@@ -338,7 +350,7 @@
         onComplete?.(reason);
       } catch (err) {
         console.warn(
-          "SMS Contact Filter: auto-scroll cancellation handler error",
+          "Chat Jump: auto-scroll cancellation handler error",
           err
         );
       }
@@ -351,15 +363,15 @@
     const controlsContainer = document.createElement("div");
     controlsContainer.id = "smsContactFilterControls";
     Object.assign(controlsContainer.style, {
-      background: "rgba(33, 150, 243, 0.12)",
-      border: "1px solid rgba(33, 150, 243, 0.35)",
+      background: ACCENT_SURFACE_BG,
+      border: `1px solid ${ACCENT_BORDER_COLOR}`,
       borderRadius: "12px",
-      boxShadow: "0 4px 12px rgba(0, 0, 0, 0.18)",
+      boxShadow: "0 4px 12px rgba(36, 61, 16, 0.18)",
       padding: "14px",
       display: "flex",
       flexDirection: "column",
       gap: "12px",
-      fontFamily: 'Roboto, "Segoe UI", "Helvetica Neue", Arial, sans-serif',
+      fontFamily: GOOGLE_SANS_STACK,
       position: "sticky",
       top: "8px",
       zIndex: "1000",
@@ -370,24 +382,56 @@
     const toggleButton = document.createElement("button");
     toggleButton.id = "smsContactFilterToggle";
     toggleButton.type = "button";
-    toggleButton.textContent = "🔍 Search/Filter";
     toggleButton.title = "Show search and filter";
+    toggleButton.setAttribute("aria-label", "Search chats");
+    const MATERIAL_BUTTON_RADIUS = "16px";
+
     Object.assign(toggleButton.style, {
       display: "none",
       alignItems: "center",
+      justifyContent: "flex-start",
       gap: "6px",
-      padding: "8px 16px",
-      borderRadius: "999px",
-      border: "1px solid rgba(33,150,243,0.45)",
-      background: "linear-gradient(180deg, #4dabf7, #1976d2)",
-      color: "#ffffff",
-      fontSize: "14px",
-      fontWeight: "600",
+      padding: "0 20px",
+      height: "48px",
+      borderRadius: MATERIAL_BUTTON_RADIUS,
+      border: `1px solid ${ACCENT_BORDER_COLOR}`,
+      background: `linear-gradient(180deg, ${ACCENT_BASE_LIGHT}, ${ACCENT_BASE_DARK})`,
+      color: "rgb(0 0 0)",
+      fontSize: "15px",
+      fontFamily: GOOGLE_SANS_STACK,
+      fontWeight: "500",
       cursor: "pointer",
-      boxShadow: "0 2px 6px rgba(0,0,0,0.25)",
+      boxShadow: "0 2px 6px rgba(36,61,16,0.25)",
       transition: "filter 0.2s, transform 0.2s",
       textDecoration: "none",
+      whiteSpace: "nowrap",
     });
+    const toggleIcon = document.createElement("span");
+    toggleIcon.textContent = "🔍";
+    toggleIcon.setAttribute("aria-hidden", "true");
+    Object.assign(toggleIcon.style, {
+      fontSize: "18px",
+      display: "inline-flex",
+      alignItems: "center",
+      justifyContent: "center",
+      marginRight: "10px",
+      flexShrink: "0",
+      lineHeight: "1",
+    });
+
+    const toggleLabel = document.createElement("span");
+    toggleLabel.textContent = "Search";
+    toggleLabel.setAttribute("aria-hidden", "true");
+    Object.assign(toggleLabel.style, {
+      display: "inline-block",
+      textAlign: "left",
+      lineHeight: "1.2",
+      color: "rgb(0 0 0)",
+      whiteSpace: "nowrap",
+      minWidth: "0",
+    });
+
+    toggleButton.append(toggleIcon, toggleLabel);
     toggleButton.addEventListener("mouseenter", () => {
       toggleButton.style.filter = "brightness(1.1)";
       toggleButton.style.transform = "translateY(-1px)";
@@ -578,6 +622,37 @@
     }
 
     placeToggleButton();
+    const prefersNarrowMedia = window.matchMedia?.("(max-width: 960px)");
+    const extraNarrowMedia = window.matchMedia?.("(max-width: 820px)");
+
+    function applyResponsiveToggleStyles() {
+      const isNarrow = prefersNarrowMedia?.matches;
+      const isExtraNarrow = extraNarrowMedia?.matches;
+
+      if (isNarrow) {
+        toggleButton.style.marginLeft = "0";
+      } else {
+        toggleButton.style.marginLeft = "8px";
+      }
+
+      if (isExtraNarrow) {
+        toggleButton.style.padding = "0";
+        toggleButton.style.justifyContent = "center";
+        toggleIcon.style.marginRight = "0";
+        toggleLabel.style.display = "none";
+        toggleButton.style.width = "50px";
+      } else {
+        toggleButton.style.padding = "0 20px";
+        toggleButton.style.justifyContent = "flex-start";
+        toggleIcon.style.marginRight = "10px";
+        toggleLabel.style.display = "inline-block";
+        toggleButton.style.width = "auto";
+      }
+    }
+
+    applyResponsiveToggleStyles();
+    prefersNarrowMedia?.addEventListener?.("change", applyResponsiveToggleStyles);
+    extraNarrowMedia?.addEventListener?.("change", applyResponsiveToggleStyles);
     toggleButton.addEventListener("click", () => showControls({ focus: true }));
 
     const filter = document.createElement("input");
@@ -603,7 +678,7 @@
       padding: "6px 84px 6px 14px", // space for buttons on the right
       width: "100%",
       fontSize: "15px",
-      fontFamily: "inherit",
+      fontFamily: GOOGLE_SANS_STACK,
       boxSizing: "border-box",
       border: "1px solid rgba(0,0,0,0.2)",
       borderRadius: "8px",
@@ -626,7 +701,7 @@
       transform: "translateY(-50%)",
       border: "none",
       background: "transparent",
-      color: "#1f88e0",
+      color: ACCENT_BASE_DARK,
       fontSize: "20px",
       fontFamily: "inherit",
       lineHeight: "1",
@@ -636,7 +711,7 @@
 
     searchBtn.addEventListener("mouseenter", () => {
       if (!searchBtn.disabled) {
-        searchBtn.style.filter = "brightness(1.2)";
+        searchBtn.style.filter = "brightness(1.05)";
         searchBtn.style.transform = "translateY(-50%) scale(1.05)";
       }
     });
@@ -705,7 +780,7 @@
     });
     hideControlsBtn.addEventListener("mouseenter", () => {
       hideControlsBtn.style.background = "rgba(255,255,255,0.3)";
-      hideControlsBtn.style.color = "#1565c0";
+      hideControlsBtn.style.color = ACCENT_BASE_DARK;
     });
     hideControlsBtn.addEventListener("mouseleave", () => {
       hideControlsBtn.style.background = "rgba(255,255,255,0.18)";
@@ -734,7 +809,7 @@
     infoLink.rel = "noopener noreferrer";
     infoLink.setAttribute(
       "aria-label",
-      "Learn more about SMS Contact Filter and support development"
+      "Learn more about Chat Jump and support development"
     );
     infoLink.textContent = "i";
     Object.assign(infoLink.style, {
@@ -750,7 +825,7 @@
       alignItems: "center",
       justifyContent: "center",
       textDecoration: "none",
-      color: "#0d1724",
+      color: ACCENT_BASE_DARK,
       fontSize: "12px",
       lineHeight: "1",
       fontWeight: "600",
@@ -763,19 +838,19 @@
     });
     infoLink.addEventListener("mouseenter", () => {
       infoLink.style.background = "rgba(255,255,255,0.3)";
-      infoLink.style.color = "#1565c0";
+      infoLink.style.color = ACCENT_BASE_DARK;
     });
     infoLink.addEventListener("mouseleave", () => {
       infoLink.style.background = "rgba(255,255,255,0.18)";
-      infoLink.style.color = "#0d1724";
+      infoLink.style.color = ACCENT_BASE_DARK;
     });
     infoLink.addEventListener("focus", () => {
       infoLink.style.background = "rgba(255,255,255,0.3)";
-      infoLink.style.color = "#1565c0";
+      infoLink.style.color = ACCENT_BASE_DARK;
     });
     infoLink.addEventListener("blur", () => {
       infoLink.style.background = "rgba(255,255,255,0.18)";
-      infoLink.style.color = "#0d1724";
+      infoLink.style.color = ACCENT_BASE_DARK;
     });
     infoLink.addEventListener("click", (event) => {
       event.stopPropagation();
@@ -783,8 +858,8 @@
     infoLinkRow.appendChild(infoLink);
 
     filter.addEventListener("focus", () => {
-      filter.style.borderColor = "#64b5f6";
-      filter.style.boxShadow = "0 0 0 3px rgba(100, 181, 246, 0.25)";
+      filter.style.borderColor = ACCENT_BASE_LIGHT;
+      filter.style.boxShadow = ACCENT_FOCUS_RING;
     });
     filter.addEventListener("blur", () => {
       filter.style.borderColor = "rgba(0,0,0,0.2)";
@@ -805,7 +880,7 @@
         width: 100%;
         text-align: left;
         border: 0;
-        background: rgba(25, 118, 210, 0.65);
+        background: rgba(129, 195, 71, 0.75);
         color: #fff;
         padding: 6px 8px;
         border-radius: 4px;
@@ -815,7 +890,7 @@
       }
       .scf-match-button:hover,
       .scf-match-button:focus {
-        background: rgba(25, 118, 210, 0.8);
+        background: rgba(129, 195, 71, 0.9);
         outline: none;
       }
       .scf-hide-loading [role="progressbar"],
@@ -913,7 +988,7 @@
       inputEl.value = value;
       inputEl.checked = isChecked;
       inputEl.style.marginRight = "0";
-      inputEl.style.accentColor = "#64b5f6";
+      inputEl.style.accentColor = ACCENT_BASE;
 
       labelEl.appendChild(inputEl);
       const textNode = document.createElement("span");
@@ -960,13 +1035,13 @@
       display: "none",
       padding: "10px 12px 12px 12px",
       borderRadius: "10px",
-      border: "1px solid rgba(33, 150, 243, 0.35)",
-      background: "rgba(13, 23, 36, 0.78)",
-      boxShadow: "0 6px 16px rgba(0,0,0,0.35)",
+      border: `1px solid ${ACCENT_BORDER_COLOR}`,
+      background: "rgba(14, 24, 10, 0.92)",
+      boxShadow: "0 6px 16px rgba(24, 40, 12, 0.35)",
       maxHeight: "200px",
       overflowY: "auto",
       position: "relative",
-      fontFamily: 'Roboto, "Segoe UI", "Helvetica Neue", Arial, sans-serif',
+      fontFamily: GOOGLE_SANS_STACK,
     });
     updateMatchesMargin();
 
@@ -983,7 +1058,7 @@
       border: "none",
       borderRadius: "50%",
       background: "rgba(255,255,255,0.15)",
-      color: "#bbdefb",
+      color: "#e6f5d1",
       fontSize: "16px",
       lineHeight: "1",
       cursor: "pointer",
@@ -1000,7 +1075,7 @@
       fontWeight: "600",
       textTransform: "uppercase",
       letterSpacing: "0.5px",
-      color: "#64b5f6",
+      color: ACCENT_BASE_LIGHT,
       marginBottom: "8px",
     });
 
@@ -1025,11 +1100,11 @@
     });
     matchesCloseBtn.addEventListener("mouseenter", () => {
       matchesCloseBtn.style.background = "rgba(255,255,255,0.3)";
-      matchesCloseBtn.style.color = "#ffffff";
+      matchesCloseBtn.style.color = "#f6ffeb";
     });
     matchesCloseBtn.addEventListener("mouseleave", () => {
       matchesCloseBtn.style.background = "rgba(255,255,255,0.15)";
-      matchesCloseBtn.style.color = "#bbdefb";
+      matchesCloseBtn.style.color = "#e6f5d1";
     });
     controlsContainer.insertAdjacentElement("afterend", matchesWrap);
 
@@ -1071,7 +1146,7 @@
         }
         setConversationBlank(true);
       } catch (err) {
-        console.debug("SMS Contact Filter: clear active selection failed", err);
+        console.debug("Chat Jump: clear active selection failed", err);
       }
     }
 
@@ -1247,7 +1322,7 @@
         try {
           if (predicate()) return true;
         } catch (err) {
-          console.debug("SMS Contact Filter waitUntil error", err);
+          console.debug("Chat Jump waitUntil error", err);
         }
         await waitFor(interval, controller);
       }
@@ -1255,7 +1330,7 @@
       try {
         return predicate();
       } catch (err) {
-        console.debug("SMS Contact Filter waitUntil final error", err);
+        console.debug("Chat Jump waitUntil final error", err);
         return false;
       }
     }
@@ -1305,10 +1380,8 @@
       fullScanController = controller;
 
       const activeEntry = findActiveConversationEntry(entries);
-      const slowWarning =
-        "This may take a while because Google Messages loads each chat individually.";
       statusMsg.style.display = "block";
-      statusMsg.textContent = `Scanning conversations 0/${entries.length}… ${slowWarning}`;
+      statusMsg.textContent = `Scanning conversations 0/${entries.length}...`;
 
       renderMatches([]);
 
@@ -1335,9 +1408,7 @@
           renderMatches(results.map((match) => ({ ...match })));
         }
         if (!controller.cancelled) {
-          statusMsg.textContent = `Scanning conversations ${i + 1}/${
-            entries.length
-          }… ${slowWarning}`;
+          statusMsg.textContent = `Scanning conversations ${i + 1}/${entries.length}...`;
         }
       }
 
@@ -1488,7 +1559,7 @@
             node.scrollIntoView({ behavior: "smooth", block: "center" });
           } catch (err) {
             console.warn(
-              "SMS Contact Filter: unable to focus conversation from match list",
+              "Chat Jump: unable to focus conversation from match list",
               err
             );
           }
@@ -1509,7 +1580,7 @@
       const entries = collectConversationEntries(sidebar);
       if (q && entries.length === 0) {
         console.warn(
-          "SMS Contact Filter: no entries detected; active detector",
+          "Chat Jump: no entries detected; active detector",
           activeEntryDetector?.name
         );
       }
@@ -1543,7 +1614,7 @@
         if (index === 0 && q) {
           const sampleLogKey = `${searchMode}:${q}`;
           if (sampleLogKey !== lastSampleLogKey) {
-            console.debug("SMS Contact Filter: sample entry text", {
+            console.debug("Chat Jump: sample entry text", {
               query: q,
               textToSearch,
               searchMode,
@@ -1599,7 +1670,7 @@
         searchBtn.style.fontSize = "20px";
         searchBtn.style.padding = "4px 6px";
         searchBtn.style.background = "transparent";
-        searchBtn.style.color = "#64b5f6";
+      searchBtn.style.color = ACCENT_BASE_LIGHT;
         searchBtn.setAttribute("aria-label", "Run search");
       }
       searchBtn.style.cursor = "pointer";
@@ -1683,7 +1754,7 @@
       filterNow();
 
       statusMsg.textContent = isFullConversationMode
-        ? "Gathering conversations… Full scan opens each chat sequentially, so please hang tight."
+        ? "Gathering conversations..."
         : "Searching for more...";
       statusMsg.style.display = "block";
       setSearchingState(true);
@@ -1700,8 +1771,7 @@
           }
 
           if (isFullConversationMode && finalReason !== "cancelled") {
-            statusMsg.textContent =
-              "Scanning conversations… This may take a while because Google Messages loads each chat individually.";
+            statusMsg.textContent = "Scanning conversations...";
             statusMsg.style.display = "block";
             runFullConversationScan(normalizedQuery, query).finally(() => {
               isScrolling = false;
@@ -1736,6 +1806,11 @@
           isScrolling = false;
           setSearchingState(false);
           setLoadingIndicatorSuppressed(sidebar, true);
+        },
+        (count) => {
+          if (isFullConversationMode) {
+            statusMsg.textContent = `Gathering conversations (${count} found)...`;
+          }
         }
       );
 
@@ -1743,8 +1818,7 @@
         hasLoadedAll = true;
         filterNow();
         if (isFullConversationMode) {
-          statusMsg.textContent =
-            "Scanning conversations… This may take a while because Google Messages loads each chat individually.";
+          statusMsg.textContent = "Scanning conversations...";
           statusMsg.style.display = "block";
           runFullConversationScan(normalizedQuery, query).finally(() => {
             isScrolling = false;
@@ -1820,8 +1894,27 @@
           startSearch();
         }
       } else if (e.key === "Escape") {
-        clearFilter();
-        clearActiveConversationSelection();
+        e.preventDefault();
+        hideControls();
+        requestAnimationFrame(() => {
+          if (toggleButton.isConnected) {
+            try {
+              toggleButton.focus();
+            } catch (err) {
+              console.debug("Chat Jump: focus toggle failed", err);
+            }
+          }
+        });
+        
+        // Select the topmost (most recent) conversation when closing search
+        const topEntry = firstConversationEntry(sidebar);
+        if (topEntry) {
+          const clickable =
+            topEntry.querySelector('a, [role="option"], button') || topEntry;
+          clickable.dispatchEvent(
+            new MouseEvent("click", { bubbles: true, cancelable: true })
+          );
+        }
       }
     });
 
@@ -1882,16 +1975,95 @@
 
     controlsContainer.appendChild(infoLinkRow);
 
+    if (!globalEscapeListener) {
+      globalEscapeListener = (event) => {
+        if (event.key !== "Escape") return;
+        if (event.defaultPrevented) return;
+        if (filter === document.activeElement) return;
+
+        const target = event.target instanceof Node ? event.target : null;
+        if (
+          target &&
+          (controlsContainer.contains(target) ||
+            matchesWrap?.contains?.(target) ||
+            toggleButton.contains(target))
+        ) {
+          return;
+        }
+
+        const conversationContainer =
+          document.querySelector("mw-conversation-container");
+        const activeEntry = findActiveConversationEntry(
+          collectConversationEntries(sidebar)
+        );
+        const isWithinConversation =
+          (target && conversationContainer?.contains?.(target)) ||
+          (conversationContainer &&
+            conversationContainer.contains(document.activeElement));
+
+        const searchIsVisible = controlsContainer.style.display !== "none";
+        
+        // If search is visible, focus it
+        if (searchIsVisible) {
+          event.preventDefault();
+          suppressMatchesPanel = false;
+          lastMatchesSignature = "";
+          clearActiveConversationSelection();
+          filterNow();
+          requestAnimationFrame(() => {
+            try {
+              filter.focus({ preventScroll: true });
+              filter.select();
+            } catch (err) {
+              console.debug("Chat Jump: focus restore failed", err);
+            }
+          });
+          return;
+        }
+        
+        // If search is hidden and we're in a conversation, select topmost conversation
+        if (!searchIsVisible && (activeEntry || isWithinConversation)) {
+          event.preventDefault();
+          const topEntry = firstConversationEntry(sidebar);
+          if (topEntry) {
+            console.info("Chat Jump: Escape pressed, selecting top conversation", topEntry);
+            topEntry.scrollIntoView({ behavior: "instant", block: "start" });
+            
+            // Wait a moment for scroll, then click
+            setTimeout(() => {
+              const clickable =
+                topEntry.querySelector('a[href], [role="option"], button') || topEntry;
+              console.info("Chat Jump: Clicking element", clickable);
+              
+              // Try both methods
+              clickable.click();
+              clickable.dispatchEvent(
+                new MouseEvent("click", {
+                  bubbles: true,
+                  cancelable: true,
+                  view: window,
+                })
+              );
+            }, 100);
+          } else {
+            console.warn("Chat Jump: No top entry found");
+          }
+        }
+      };
+      document.addEventListener("keydown", globalEscapeListener, true);
+    }
+
     hideControls();
 
     // Auto-scroll now runs only when the user explicitly starts a search
   }
 
   let bootObserver;
+  let globalEscapeListener = null;
   function boot() {
     const sidebar = findSidebar();
     if (sidebar) {
-      console.info("SMS Contact Filter: sidebar located", sidebar);
+      console.info("Chat Jump: sidebar located", sidebar);
       if (bootObserver) bootObserver.disconnect(); // Stop observing once we're done
       attachFilter(sidebar);
     }
