@@ -1,3 +1,5 @@
 dist/
 *.zip
 node_modules/
+design-elements/
+chrome-web-store-images/
